@@ -1,0 +1,2172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAMDEV Studio — Worship Presentation Engine</title>
+    <!-- Required: JSZip to extract PPTX files on the client side -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+:root {
+            --bg-main: #0f1624;
+            --bg-sidebar: rgba(18, 26, 38, 0.95);
+            --bg-panel: rgba(255, 255, 255, 0.05);
+            --bg-card: rgba(255, 255, 255, 0.07);
+            --accent: #4e81ff;
+            --accent-strong: #2f61d1;
+            --accent-live: #ff735f;
+            --accent-live-active: #dc3f2f;
+            --accent-green: #3ec06e;
+            --text-main: #eef2fb;
+            --text-muted: #9daec7;
+            --border: rgba(255, 255, 255, 0.12);
+            --shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+            --radius-lg: 18px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+        }
+
+/* Draggable resize handles between panels */
+        .resize-handle {
+            width: 8px;
+            margin: 0 -2px;
+            cursor: col-resize;
+            position: relative;
+            z-index: 20;
+            border-radius: 999px;
+            background: transparent;
+            transition: background 0.18s ease, box-shadow 0.18s ease;
+            flex-shrink: 0;
+            touch-action: none;
+        }
+        .resize-handle::after {
+            content: '';
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 3px;
+            height: 80%;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.12);
+            transition: background 0.18s ease, height 0.18s ease, top 0.18s ease;
+        }
+        .resize-handle:hover,
+        .resize-handle.active {
+            background: rgba(91, 140, 255, 0.12);
+            box-shadow: 0 0 12px rgba(91, 140, 255, 0.25);
+        }
+        .resize-handle:hover::after,
+        .resize-handle.active::after {
+            background: rgba(91, 140, 255, 0.9);
+            height: 100%;
+            top: 0;
+        }
+        body.resizing {
+            cursor: col-resize;
+            user-select: none;
+        }
+        body.resizing .center-panel,
+        body.resizing .left-panel,
+        body.resizing .right-panel {
+            pointer-events: none;
+        }
+
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, rgba(91,140,255,0.5), rgba(124,92,255,0.5));
+            border-radius: 999px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+        ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, rgba(91,140,255,0.8), rgba(124,92,255,0.8)); background-clip: padding-box; }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(180deg, #101627 0%, #0c1220 40%, #0b101e 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: auto;
+        }
+
+        header {
+            background: rgba(14, 22, 34, 0.96);
+            backdrop-filter: blur(16px);
+            padding: 18px 26px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
+        }
+
+.logo {
+            font-size: 1.1rem;
+            font-weight: 800;
+            letter-spacing: 0.01em;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .logo img {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            object-fit: cover;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08);
+        }
+        .logo div {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .logo-caption {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            letter-spacing: 0.02em;
+            display: block;
+        }
+        .logo span { color: var(--accent); }
+
+        .top-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .header-main {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .header-title {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .header-title .title {
+            font-size: 1rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .header-title .subtitle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            letter-spacing: 0.02em;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .header-mode-chip {
+            padding: 8px 14px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-main);
+        }
+
+        .status-pills {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .status-pill {
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--text-main);
+            background: rgba(91, 140, 255, 0.18);
+        }
+
+        .status-pill.live {
+            background: rgba(255, 90, 95, 0.18);
+            color: #ffd6d9;
+        }
+
+        button, select, input, textarea {
+            background: rgba(255,255,255,0.08);
+            color: var(--text-main);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            padding: 10px 14px;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            outline: none;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.12);
+            transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.2s ease;
+            backdrop-filter: blur(8px);
+        }
+        button {
+            cursor: pointer;
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.14);
+            color: var(--text-main);
+        }
+        button.primary {
+            background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+            border-color: transparent;
+            color: #fff;
+            box-shadow: 0 14px 32px rgba(46, 84, 220, 0.24);
+        }
+        button.secondary {
+            background: rgba(255,255,255,0.08);
+            color: var(--text-main);
+            border-color: rgba(255,255,255,0.14);
+        }
+        button.danger {
+            background: linear-gradient(180deg, rgba(220, 69, 59, 0.95), rgba(191, 41, 30, 0.95));
+            border-color: transparent;
+            color: #fff;
+        }
+        button.ghost {
+            background: transparent;
+            border-color: rgba(255,255,255,0.14);
+            color: var(--text-main);
+        }
+        button:hover {
+            transform: translateY(-1px);
+            background: rgba(255,255,255,0.14);
+            box-shadow: 0 14px 30px rgba(0,0,0,0.16);
+        }
+        button.primary:hover {
+            background: linear-gradient(180deg, #5b8bff, #2f62e2);
+        }
+        button.danger:hover {
+            background: rgba(228, 85, 71, 0.98);
+        }
+        button:active {
+            transform: translateY(0) scale(0.98);
+        }
+        select, input, textarea {
+            background: rgba(255,255,255,0.06);
+            color: var(--text-main);
+            border-color: rgba(255,255,255,0.12);
+        }
+        select:focus, input:focus, textarea:focus {
+            border-color: rgba(78,129,255,0.8);
+            box-shadow: 0 0 0 3px rgba(78,129,255,0.12);
+        }
+        button:focus-visible {
+            outline: 2px solid rgba(78,129,255,0.9);
+            outline-offset: 2px;
+        }
+
+        .workspace {
+            display: flex;
+            flex: 1;
+            gap: 16px;
+            padding: 18px;
+            overflow: hidden;
+        }
+
+        .left-panel,
+        .center-panel,
+        .right-panel {
+            border: 1px solid rgba(255,255,255,0.10);
+            border-radius: 24px;
+            background: rgba(16, 24, 37, 0.9);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.18);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .left-panel {
+            width: 360px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .resource-section,
+        .schedule-section {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .resource-section {
+            flex: 1;
+            min-height: 0;
+        }
+
+        .schedule-section {
+            height: 250px;
+            min-height: 250px;
+            background: linear-gradient(180deg, rgba(7, 12, 28, 0.96), rgba(10, 16, 34, 0.96));
+        }
+
+        .tabs {
+            display: flex;
+            padding: 6px;
+            gap: 6px;
+            background: rgba(255,255,255,0.02);
+            border-bottom: 1px solid var(--border);
+        }
+
+.tab {
+            flex: 1;
+            padding: 10px 6px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 0.76rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            border-radius: 10px;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            position: relative;
+        }
+        .tab:hover { color: var(--text-main); background: rgba(255,255,255,0.05); }
+
+        .tab.active {
+            color: var(--text-main);
+            background: linear-gradient(180deg, rgba(91, 140, 255, 0.42), rgba(91, 140, 255, 0.18));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+        }
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 20%;
+            width: 60%;
+            height: 3px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+        }
+
+        .action-bar {
+            padding: 10px;
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(255,255,255,0.02);
+            align-items: center;
+        }
+
+        .list-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+.list-item {
+            padding: 12px 10px;
+            background: linear-gradient(180deg, rgba(40, 57, 99, 0.95), rgba(27, 40, 72, 0.98));
+            margin-bottom: 0;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid rgba(255,255,255,0.06);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
+            transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.2s ease;
+        }
+        .list-item:hover {
+            transform: translateX(2px);
+            border-color: rgba(79,127,255,0.9);
+            background: rgba(255,255,255,0.1);
+            box-shadow: 0 12px 28px rgba(0,0,0,0.2);
+        }
+        .list-item.selected {
+            background: rgba(79,127,255,0.14);
+            border-color: rgba(79,127,255,0.85);
+        }
+
+        .btn-action {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 4px 8px;
+            border-radius: 8px;
+        }
+        .btn-action:hover { color: var(--text-main); background: rgba(255,255,255,0.08); }
+        .btn-add-schedule:hover { color: #72e5a0; background: rgba(114, 229, 160, 0.12); }
+
+        .center-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .slide-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 16px;
+            padding: 18px;
+            overflow-y: auto;
+            align-content: start;
+            background: rgba(255,255,255,0.05);
+            border-radius: var(--radius-lg);
+        }
+
+.slide-thumb {
+            aspect-ratio: 16/9;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            text-align: center;
+            font-size: 0.72rem;
+            overflow: hidden;
+            box-shadow: 0 16px 34px rgba(0,0,0,0.18);
+            color: var(--text-main);
+            font-weight: 700;
+            transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.2s ease;
+            animation: cardIn 0.28s ease;
+            background: rgba(255,255,255,0.08);
+        }
+        .slide-thumb::after {
+            content: attr(data-index);
+            position: absolute;
+            top: 8px;
+            left: 10px;
+            z-index: 5;
+            font-size: 0.6rem;
+            font-weight: 800;
+            color: #fff;
+            background: rgba(0,0,0,0.55);
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 999px;
+            padding: 2px 8px;
+            backdrop-filter: blur(4px);
+            letter-spacing: 0.04em;
+        }
+        .slide-thumb:hover {
+            transform: translateY(-3px) scale(1.01);
+            border-color: rgba(79,127,255,0.9);
+            box-shadow: 0 18px 34px rgba(0,0,0,0.24);
+        }
+        .slide-thumb.active {
+            border-color: rgba(79,127,255,0.95);
+            box-shadow: 0 0 0 3px rgba(79,127,255,0.16), 0 14px 30px rgba(0,0,0,0.22);
+        }
+        .slide-thumb video, .slide-thumb img {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover; z-index: 1;
+            pointer-events: none;
+        }
+        .slide-content-text {
+            position: relative;
+            z-index: 2;
+            text-shadow: 2px 2px 4px #000;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            line-height: 1.35;
+            letter-spacing: 0.02em;
+        }
+
+        .deck-editor-drawer {
+            background: rgba(255,255,255,0.03);
+            border-top: 1px solid var(--border);
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            height: 220px;
+        }
+        .deck-editor-row {
+            display: flex;
+            gap: 10px;
+            flex: 1;
+        }
+        .deck-editor-drawer textarea {
+            flex: 1;
+            height: 100%;
+            resize: none;
+            font-family: inherit;
+            font-size: 0.9rem;
+            padding: 12px;
+            border-radius: 16px;
+            background: rgba(5, 10, 22, 0.8);
+        }
+        .deck-editor-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 140px;
+        }
+
+        .right-panel {
+            width: 420px;
+            display: flex;
+            flex-direction: column;
+        }
+
+.preview-box,
+        .live-box {
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            overflow: hidden;
+        }
+        .preview-box { flex: 1.2; border-bottom: 1px solid var(--border); }
+        .live-box { flex: 1; }
+
+        /* Compact preview monitor controls so the preview screen is more visible */
+        .preview-controls {
+            padding: 8px;
+            gap: 8px;
+            align-items: stretch;
+            background: rgba(255,255,255,0.04);
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+        .preview-controls button,
+        .preview-controls select {
+            padding: 8px 12px;
+            font-size: 0.78rem;
+            border-radius: 10px;
+            min-height: 34px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.08);
+            color: var(--text-main);
+        }
+        .preview-controls button:hover,
+        .preview-controls select:hover {
+            background: rgba(255,255,255,0.12);
+        }
+        .preview-controls .btn-fit,
+        .preview-controls .btn-live-cta {
+            width: 100%;
+            background: rgba(79,127,255,0.16);
+            border-color: rgba(79,127,255,0.24);
+            color: var(--text-main);
+        }
+        .preview-controls .control-row {
+            display: flex;
+            gap: 5px;
+        }
+
+        .screen-container {
+            flex: 1;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 20px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+            background: linear-gradient(180deg, #0f1420, #0c101d 60%, #121a28);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05), 0 14px 34px rgba(0,0,0,0.28);
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .screen-container.is-transitioning {
+            animation: screenPulse 0.45s ease;
+        }
+        .screen-container video, .screen-container img {
+            position: absolute;
+            top:0; left:0; width:100%; height:100%;
+            object-fit: cover; z-index: 1;
+        }
+
+        .slide-render-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .slide-render-layer img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            z-index: 3;
+        }
+
+        .screen-text {
+            color: #fff;
+            font-size: 1.2rem;
+            font-weight: 800;
+            text-align: center;
+            width: 90%;
+            white-space: pre-wrap;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.9);
+            z-index: 4;
+        }
+
+        .live-box .screen-container {
+            border: 2px solid rgba(255, 90, 95, 0.85);
+            box-shadow: 0 0 0 2px rgba(255, 90, 95, 0.12), 0 12px 28px rgba(0,0,0,0.34);
+        }
+        .live-box.active-air .screen-container {
+            border-color: rgba(255, 77, 79, 0.95);
+            box-shadow: 0 0 0 3px rgba(255, 77, 79, 0.24), 0 0 18px rgba(255, 77, 79, 0.4);
+        }
+
+        .modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(4, 8, 20, 0.72);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            visibility: hidden;
+        }
+        .modal.open { visibility: visible; }
+        .modal-content {
+            background: rgba(12, 19, 31, 0.96);
+            border: 1px solid rgba(255,255,255,0.12);
+            padding: 22px;
+            border-radius: 20px;
+            width: 450px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            box-shadow: var(--shadow);
+        }
+        .modal-content textarea { height: 120px; resize: none; }
+
+        .bible-search-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+.bible-search-grid .full-span {
+            grid-column: 1 / -1;
+        }
+
+        .bible-book-search {
+            position: relative;
+        }
+        .bible-book-search input {
+            width: 100%;
+            font-size: 0.9rem;
+        }
+        .bible-book-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            background: linear-gradient(180deg, rgba(30, 44, 78, 0.98), rgba(16, 25, 48, 0.98));
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 10px;
+            margin-top: 4px;
+            max-height: 180px;
+            overflow-y: auto;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.45);
+            display: none;
+        }
+        .bible-book-suggestions.show { display: block; }
+        .bible-book-suggestion {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: var(--text-main);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .bible-book-suggestion:hover,
+        .bible-book-suggestion.active {
+            background: rgba(91, 140, 255, 0.35);
+        }
+
+        .theme-manager-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .panel-header {
+            padding: 14px 16px;
+            font-weight: 800;
+            background: rgba(255,255,255,0.08);
+            border-bottom: 1px solid rgba(255,255,255,0.12);
+            letter-spacing: 0.03em;
+            color: var(--text-main);
+        }
+
+        /* Toast notification toast system */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast {
+            min-width: 240px;
+            max-width: 340px;
+            padding: 12px 16px;
+            border-radius: 14px;
+            background: linear-gradient(180deg, rgba(30, 44, 78, 0.98), rgba(16, 25, 48, 0.98));
+            border: 1px solid rgba(255,255,255,0.12);
+            box-shadow: 0 16px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(91,140,255,0.12);
+            color: var(--text-main);
+            font-size: 0.85rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: toastIn 0.3s ease;
+            pointer-events: auto;
+        }
+        .toast.success { border-color: rgba(47, 214, 122, 0.5); }
+        .toast.success .toast-dot { background: var(--accent-green); box-shadow: 0 0 10px rgba(47,214,122,0.6); }
+        .toast.error { border-color: rgba(255, 90, 95, 0.5); }
+        .toast.error .toast-dot { background: var(--accent-live-active); box-shadow: 0 0 10px rgba(255,90,95,0.6); }
+        .toast.info .toast-dot { background: var(--accent); box-shadow: 0 0 10px rgba(91,140,255,0.6); }
+        .toast-dot {
+            width: 10px;
+            height: 10px;
+            min-width: 10px;
+            border-radius: 999px;
+        }
+        .toast.hide { animation: toastOut 0.3s ease forwards; }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(30px) scale(0.96); }
+            to { opacity: 1; transform: translateX(0) scale(1); }
+        }
+        @keyframes toastOut {
+            from { opacity: 1; transform: translateX(0) scale(1); }
+            to { opacity: 0; transform: translateX(30px) scale(0.96); }
+        }
+
+        @keyframes cardIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+@keyframes screenPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.01); }
+            100% { transform: scale(1); }
+        }
+
+        /* Support / Donate button accent */
+        #donateBtn {
+            background: linear-gradient(180deg, rgba(255, 193, 7, 0.9), rgba(230, 160, 0, 0.9));
+            border-color: rgba(255, 215, 100, 0.6);
+            color: #3a2a00;
+        }
+        #donateBtn:hover {
+            background: linear-gradient(180deg, rgba(255, 205, 40, 1), rgba(240, 175, 10, 1));
+            border-color: rgba(255, 225, 130, 0.9);
+        }
+
+        /* Feedback form modal tweaks */
+        .feedback-modal { width: 500px; }
+        .feedback-modal textarea { height: 130px; resize: none; }
+        .feedback-category {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .feedback-category label {
+            flex: 1;
+            min-width: 90px;
+            text-align: center;
+            padding: 8px 6px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03);
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .feedback-category input { display: none; }
+        .feedback-category input:checked + label {
+            background: linear-gradient(180deg, rgba(91, 140, 255, 0.5), rgba(91, 140, 255, 0.22));
+            border-color: rgba(91,140,255,0.8);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-main">
+            <div class="logo">
+                <img src="logo.png" alt="SAMDEV Studio Logo">
+                <div class="header-title">
+                    <span class="title">SAMDEV Studio</span>
+                    <span class="subtitle">Worship presentation & media operations</span>
+                </div>
+            </div>
+        </div>
+        <div class="header-actions">
+            <div class="header-mode-chip" id="headerModeChip">Songs Mode</div>
+            <div class="status-pills">
+                <div class="status-pill" id="deckModeBadge">No Deck</div>
+                <div class="status-pill live" id="headerLiveBadge">Offline</div>
+            </div>
+            <select id="themeDropdown" onchange="applyGlobalTheme()">
+                <option value="solid-black">Pitch Black</option>
+                <option value="gradient-blue">Ocean Gradient</option>
+            </select>
+            <button class="ghost" onclick="openThemeManagerModal()">Themes</button>
+            <button class="primary" id="donateBtn" onclick="openDonate()" title="Support this project">Support</button>
+            <button class="secondary" id="feedbackBtn" onclick="openFeedbackModal()">Feedback</button>
+            <button class="ghost" id="extendedBtn" onclick="toggleExtendedScreenTwice()">Stage Display</button>
+        </div>
+    </header>
+
+    <div class="workspace">
+        <!-- Resource & Schedule Control Column Layout -->
+        <div class="left-panel">
+            <div class="resource-section">
+                <div class="tabs">
+                    <div class="tab active" id="tab-songs" onclick="switchTab('songs')">Songs</div>
+                    <div class="tab" id="tab-scripture" onclick="switchTab('scripture')">Scripture</div>
+                    <div class="tab" id="tab-media" onclick="switchTab('media')">Media</div>
+                    <div class="tab" id="tab-presentation" onclick="switchTab('presentation')">Presentations</div>
+                </div>
+                <div class="action-bar">
+                    <input type="text" id="searchBox" placeholder="Quick Search..." oninput="filterActiveDatabase()" style="flex:1;">
+                    <button id="addLibraryBtn" onclick="openEditorModal()">+ New</button>
+                    <button id="bibleSearchBtn" onclick="openBibleSearchModal()" style="display:none;">Search Scripture</button>
+                    <!-- PowerPoint File Input -->
+                    <input type="file" id="pptxFileInput" accept=".pptx" style="display:none;" onchange="handlePptxUpload(event)">
+                </div>
+                <div class="list-container" id="resourceList"></div>
+            </div>
+
+            <!-- Service Presentation Schedule Order -->
+            <div class="schedule-section">
+                <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>Service Order</span>
+                    <button onclick="clearWholeSchedule()" style="padding: 2px 6px; font-size: 0.75rem;">Clear All</button>
+                </div>
+<div class="list-container" id="scheduleList" style="background: #15151b;"></div>
+            </div>
+        </div>
+
+        <div class="resize-handle" data-resize="left"></div>
+
+        <!-- Center Workspace Layout Grid & Workspace Slide Editor -->
+        <div class="center-panel">
+            <div class="panel-header" id="activeDeckTitle">No active deck selected</div>
+            <div class="slide-grid" id="slideMatrix"></div>
+            
+            <!-- Inline Slide Editor Dashboard Subsystem -->
+            <div class="deck-editor-drawer" id="deckEditorDrawer" style="display: none;">
+                <div style="font-size: 0.8rem; font-weight: bold; color: var(--text-muted); display:flex; justify-content:space-between;">
+                    <span>INLINE DECK TRACK EDITOR</span>
+                    <span id="editorSlideCounter">Slide 1 of 1</span>
+                </div>
+                <div class="deck-editor-row">
+                    <textarea id="deckEditorTextArea" placeholder="Select a slide above to edit its live text properties..." oninput="updateActiveSlideTextLive()"></textarea>
+                    <div class="deck-editor-controls">
+                        <button id="editorAddBtn" onclick="addNewSlideToDeck()" style="background: #28a745; border-color: #218838;">+ Add Slide</button>
+                        <button id="editorDelBtn" onclick="deleteCurrentSlideFromDeck()" style="background: #dc3545; border-color: #bd2130;">Delete Slide</button>
+</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="resize-handle" data-resize="right"></div>
+
+        <!-- Monitoring Pipeline Panels -->
+        <div class="right-panel">
+            <div class="preview-box">
+                <div class="panel-header">Preview Monitor</div>
+                <div class="screen-container" id="previewWindow">
+                    <div class="slide-render-layer" id="previewSlideRender"></div>
+                    <div class="screen-text" id="previewText"></div>
+                </div>
+<div class="action-bar preview-controls" style="flex-direction:column; align-items:stretch;">
+                    <button id="btnFitScreen" class="btn-fit" onclick="toggleFitMode()">Smart Fit: On</button>
+                    <div class="control-row">
+<select id="fontSizeSelect" style="flex:1;" onchange="applyFontSettings()">
+                            <option value="tiny">Font: Tiny</option>
+                            <option value="small">Font: Small</option>
+                            <option value="medium" selected>Font: Medium</option>
+                            <option value="large">Font: Large</option>
+                            <option value="xlarge">Font: X-Large</option>
+                            <option value="huge">Font: Huge</option>
+                        </select>
+                        <select id="fontTypeSelect" style="flex:1;" onchange="applyFontSettings()">
+                            <option value="sans-serif" selected>Type: Sans</option>
+                            <option value="serif">Type: Serif</option>
+                            <option value="monospace">Type: Mono</option>
+                        </select>
+                    </div>
+                    <button id="btnToggleLive" class="btn-live-cta" style="transition: background 0.2s;" onclick="toggleLiveState()">Go Live (F5)</button>
+                </div>
+            </div>
+            <div class="live-box" id="liveBoxContainer">
+                <div class="panel-header" id="livePanelHeader" style="color: var(--text-muted);">Live Channel Output (OFF AIR)</div>
+                <div class="screen-container" id="liveWindow">
+                    <div class="slide-render-layer" id="liveSlideRender"></div>
+                    <div class="screen-text" id="liveText"></div>
+                </div>
+                <div class="action-bar"><button style="background: #444; width:100%;" onclick="killLiveScreen()">Clear Output</button></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Asset Library Manager Editor Modal -->
+    <div class="modal" id="editorModal">
+        <div class="modal-content">
+            <h3>Add New Content</h3>
+            <input type="text" id="entryTitle" placeholder="Title or reference">
+            <textarea id="entryContent" placeholder="Enter content for the slide deck. Use blank lines to separate slides."></textarea>
+            <div style="display:flex; gap:10px; justify-content: flex-end;">
+                <button onclick="closeEditorModal()" style="background:#555;">Cancel</button>
+                <button onclick="saveResourceEntry()" style="background:var(--accent);">Save to Library</button>
+            </div>
+        </div>
+    </div>
+
+<!-- KJV Bible Search Modal -->
+    <div class="modal" id="bibleModal" onkeydown="handleBibleModalKeydown(event)">
+        <div class="modal-content">
+            <h3>KJV Bible Search</h3>
+            <div class="bible-search-grid">
+                <div class="bible-book-search full-span">
+                    <input type="text" id="bibleBookInput" placeholder="Type book name (e.g. John, Romans)..." autocomplete="off" oninput="filterBibleBooks()" onfocus="showBibleSuggestions()" onblur="hideBibleSuggestionsDelayed()">
+                    <div id="bibleBookSuggestions" class="bible-book-suggestions"></div>
+                </div>
+                <input type="number" id="bibleChapterInput" min="1" placeholder="Chapter (Tab)">
+                <input type="number" id="bibleVerseInput" min="1" placeholder="Start Verse (Tab)">
+                <input type="number" id="bibleEndVerseInput" min="1" placeholder="End Verse (optional)">
+            </div>
+            <div style="display:flex; gap:10px; justify-content: flex-end;">
+                <button onclick="closeBibleSearchModal()" style="background:#555;">Cancel</button>
+                <button onclick="searchBiblePassage()" style="background:var(--accent);">Search KJV</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Theme Custom Configuration Manager Modal -->
+    <div class="modal" id="themeModal">
+        <div class="modal-content">
+            <h3>Theme Manager</h3>
+            <button onclick="document.getElementById('themeFileInput').click()" style="background: var(--accent); width: 100%;">+ Upload New Video/Image Theme</button>
+            <input type="file" id="themeFileInput" accept="video/*,image/*" style="display:none;" onchange="handleThemeUpload(event)">
+            <div style="font-size:0.85rem; margin-top:10px; font-weight:bold; color:var(--text-muted)">Uploaded Custom Themes:</div>
+            <div id="customThemeList" style="max-height: 200px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;"></div>
+<div style="display:flex; justify-content: flex-end; margin-top:10px;">
+                <button onclick="closeThemeManagerModal()" style="background:#555;">Close</button>
+            </div>
+        </div>
+    </div>
+
+<!-- Toast notification container for user feedback -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Support Details Modal -->
+    <div class="modal" id="supportModal">
+        <div class="modal-content feedback-modal">
+            <h3>Support SAMDEV Studio</h3>
+            <div style="font-size:0.95rem; color:var(--text-main); line-height:1.6;">
+                Thank you for supporting this project. Use the details below to send a contribution.
+            </div>
+            <div id="supportDetails" style="display:flex; flex-direction:column; gap:10px; padding: 10px 0; font-size:0.95rem;">
+                <div><strong>Account Name:</strong> Adebayo Samuel Oluwaseun</div>
+                <div><strong>Account No.:</strong> 8091509041</div>
+                <div><strong>Bank Name:</strong> OPAY</div>
+            </div>
+            <div style="display:flex; gap:10px; justify-content: flex-end; flex-wrap: wrap;">
+                <button onclick="copySupportDetails()" style="background:var(--accent);">Copy Details</button>
+                <a href="mailto:?subject=Support%20SAMDEV%20Studio&body=Account%20Name%3A%20Adebayo%20Samuel%20Oluwaseun%0AAccount%20No.%3A%208091509041%0ABank%20Name%3A%20OPAY" style="display:inline-flex; align-items:center; justify-content:center; padding: 10px 14px; border-radius: 12px; background: rgba(255,255,255,0.08); color: var(--text-main); text-decoration:none; border: 1px solid rgba(255,255,255,0.12);">Email Details</a>
+                <button onclick="closeSupportModal()" style="background:#555;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feedback Form Modal -->
+    <div class="modal" id="feedbackModal">
+        <div class="modal-content feedback-modal">
+            <h3>Send Feedback</h3>
+            <div class="feedback-category">
+                <input type="radio" name="fbCategory" id="fbCatBug" value="Bug Report" checked>
+                <label for="fbCatBug">🐞 Bug Report</label>
+                <input type="radio" name="fbCategory" id="fbCatIdea" value="Feature Idea">
+                <label for="fbCatIdea">💡 Feature Idea</label>
+                <input type="radio" name="fbCategory" id="fbCatOther" value="Other">
+                <label for="fbCatOther">📬 Other</label>
+            </div>
+            <input type="text" id="fbEmail" placeholder="Your email (optional)">
+            <textarea id="fbMessage" placeholder="Describe your feedback or issue in detail..."></textarea>
+            <div style="display:flex; gap:10px; justify-content: flex-end;">
+                <button onclick="closeFeedbackModal()" style="background:#555;">Cancel</button>
+                <button onclick="submitFeedback()" style="background:var(--accent);">Send Feedback</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let appDatastore = {
+            songs: [
+                { id: 1, type:'songs', title: "Amazing Grace", lines: ["Amazing grace! How sweet the sound\nThat saved a wretch like me!", "I once was lost, but now am found;\nWas blind, but now I see."] }
+            ],
+            scripture: [
+                { id: 2, type:'scripture', title: "Psalm 23:1", lines: ["The Lord is my shepherd;\nI shall not want."] }
+            ],
+            media: [
+                { id: 3, type:'media', title: "Welcome Presentation Announcement", lines: ["Welcome to SAMDEV Live Studio\nService is about to begin."] }
+            ],
+            presentation: [] 
+        };
+
+        let customThemes = {}; 
+        let serviceSchedule = []; 
+        
+        let activeTab = 'songs';
+        let currentItem = null; 
+        let selectedSlideIdx = 0;
+
+        let isLiveActive = false; 
+        let liveDeck = [];
+        let liveSlideIdx = 0;
+        let activeThemeConfig = { type: 'color', value: '#000000' };
+        let autoFitEnabled = true;
+        let textAlignment = 'center';
+        let currentFontSize = 'medium';
+        let currentFontType = 'sans-serif';
+        const kjvBooks = [
+            'Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges','Ruth','1 Samuel','2 Samuel','1 Kings','2 Kings','1 Chronicles','2 Chronicles','Ezra','Nehemiah','Esther','Job','Psalms','Proverbs','Ecclesiastes','Song of Solomon','Isaiah','Jeremiah','Lamentations','Ezekiel','Daniel','Hosea','Joel','Amos','Obadiah','Jonah','Micah','Nahum','Habakkuk','Zephaniah','Haggai','Zechariah','Malachi',
+            'Matthew','Mark','Luke','John','Acts','Romans','1 Corinthians','2 Corinthians','Galatians','Ephesians','Philippians','Colossians','1 Thessalonians','2 Thessalonians','1 Timothy','2 Timothy','Titus','Philemon','Hebrews','James','1 Peter','2 Peter','1 John','2 John','3 John','Jude','Revelation'
+        ];
+
+let projectorWindow = null;
+
+        const STORAGE_KEY = 'samdev_worship_state_v1';
+
+        function saveState() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    appDatastore: appDatastore,
+                    serviceSchedule: serviceSchedule,
+                    customThemes: customThemes
+                }));
+            } catch (e) {
+                console.warn('Failed to save state:', e);
+            }
+        }
+
+        function loadState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return;
+                const saved = JSON.parse(raw);
+                if (saved.appDatastore) {
+                    ['songs', 'scripture', 'media', 'presentation'].forEach(k => {
+                        if (Array.isArray(saved.appDatastore[k])) appDatastore[k] = saved.appDatastore[k];
+                    });
+                }
+                if (Array.isArray(saved.serviceSchedule)) serviceSchedule = saved.serviceSchedule;
+                if (saved.customThemes) {
+                    // Blob URLs cannot survive a refresh, so drop dead media themes.
+                    Object.keys(saved.customThemes).forEach(key => {
+                        const t = saved.customThemes[key];
+                        if (t && typeof t.value === 'string' && t.value.startsWith('blob:')) {
+                            delete saved.customThemes[key];
+                        }
+                    });
+                    customThemes = saved.customThemes;
+                }
+            } catch (e) {
+                console.warn('Failed to load state:', e);
+            }
+        }
+
+function showToast(message, type = 'info', duration = 3000) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span class="toast-dot"></span><span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('hide');
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        /* Donate + Feedback support actions */
+        function openDonate() {
+            document.getElementById('supportModal').classList.add('open');
+        }
+
+        function closeSupportModal() {
+            document.getElementById('supportModal').classList.remove('open');
+        }
+
+        function copySupportDetails() {
+            const details = `Account Name: Adebayo Samuel Oluwaseun\nAccount No.: 8091509041\nBank Name: OPAY`;
+            navigator.clipboard.writeText(details).then(() => {
+                showToast('Support details copied to clipboard.', 'success');
+            }).catch(() => {
+                showToast('Unable to copy support details automatically. Please copy them manually.', 'error');
+            });
+        }
+
+        function openFeedbackModal() {
+            document.getElementById('feedbackModal').classList.add('open');
+        }
+        function closeFeedbackModal() {
+            document.getElementById('feedbackModal').classList.remove('open');
+        }
+
+        function submitFeedback() {
+            const message = document.getElementById('fbMessage').value.trim();
+            if (!message) {
+                return alert('Please describe your feedback before sending.');
+            }
+            const category = (document.querySelector('input[name="fbCategory"]:checked') || {}).value || 'Other';
+            const email = document.getElementById('fbEmail').value.trim();
+            closeFeedbackModal();
+            document.getElementById('fbMessage').value = '';
+            document.getElementById('fbEmail').value = '';
+            showToast(`Feedback (${category}) received — thank you!`, 'success');
+        }
+
+function init() {
+            loadState();
+            renderResourceSidebar();
+            renderScheduleSidebar();
+            updateDeckModeBadge();
+            updateLiveUIElements();
+setupResizeHandles();
+        }
+
+        /* Make the left and right panels resizable by dragging the vertical handles */
+        function setupResizeHandles() {
+            const workspace = document.querySelector('.workspace');
+            const leftPanel = document.querySelector('.left-panel');
+            const rightPanel = document.querySelector('.right-panel');
+            const leftHandle = document.querySelector('[data-resize="left"]');
+            const rightHandle = document.querySelector('[data-resize="right"]');
+
+            const LEFT_MIN = 240;
+            const LEFT_MAX = 560;
+            const RIGHT_MIN = 300;
+            const RIGHT_MAX = 640;
+
+            function stopResize() {
+                document.body.classList.remove('resizing');
+                leftHandle.classList.remove('active');
+                rightHandle.classList.remove('active');
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', stopResize);
+            }
+
+            function onMove(e) {
+                const rect = workspace.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const total = rect.width;
+
+                if (activeHandle === 'left') {
+                    let w = Math.round(x);
+                    w = Math.max(LEFT_MIN, Math.min(LEFT_MAX, w));
+                    leftPanel.style.width = w + 'px';
+                } else if (activeHandle === 'right') {
+                    let w = Math.round(total - x);
+                    w = Math.max(RIGHT_MIN, Math.min(RIGHT_MAX, w));
+                    rightPanel.style.width = w + 'px';
+                }
+            }
+
+            let activeHandle = null;
+            leftHandle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                activeHandle = 'left';
+                leftHandle.classList.add('active');
+                document.body.classList.add('resizing');
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', stopResize);
+            });
+
+            rightHandle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                activeHandle = 'right';
+                rightHandle.classList.add('active');
+                document.body.classList.add('resizing');
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', stopResize);
+            });
+        }
+
+        function updateDeckModeBadge() {
+            const deckModeBadge = document.getElementById('deckModeBadge');
+            if (!deckModeBadge) return;
+
+            if (!currentItem) {
+                deckModeBadge.innerText = 'No Deck';
+                deckModeBadge.style.background = 'rgba(91, 140, 255, 0.18)';
+                return;
+            }
+
+            deckModeBadge.innerText = serviceSchedule.find(i => i.scheduleId === currentItem.scheduleId) ? 'Scheduled Deck' : 'Deck Ready';
+            deckModeBadge.style.background = 'rgba(91, 140, 255, 0.28)';
+        }
+
+function switchTab(tabKey) {
+            activeTab = tabKey;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(`tab-${tabKey}`).classList.add('active');
+            document.getElementById('headerModeChip').innerText = `${tabKey.charAt(0).toUpperCase() + tabKey.slice(1)} Mode`;
+
+            const addBtn = document.getElementById('addLibraryBtn');
+            const bibleBtn = document.getElementById('bibleSearchBtn');
+            if (tabKey === 'presentation') {
+                addBtn.innerText = "+ Import PPTX";
+                addBtn.onclick = () => document.getElementById('pptxFileInput').click();
+                addBtn.style.display = 'inline-block';
+                bibleBtn.style.display = 'none';
+            } else if (tabKey === 'scripture') {
+                addBtn.innerText = "+ New";
+                addBtn.onclick = openEditorModal;
+                addBtn.style.display = 'none';
+                bibleBtn.style.display = 'inline-block';
+            } else {
+                addBtn.innerText = "+ New";
+                addBtn.onclick = openEditorModal;
+                addBtn.style.display = 'inline-block';
+                bibleBtn.style.display = 'none';
+            }
+
+            renderResourceSidebar();
+        }
+
+        function renderResourceSidebar() {
+            const list = document.getElementById('resourceList');
+            list.innerHTML = '';
+            appDatastore[activeTab].forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'list-item';
+                row.innerHTML = `
+                    <span style="flex:1;" onclick="loadItemToDesk(${item.id}, '${activeTab}')">${item.title}</span>
+                    <button class="btn-action btn-add-schedule" onclick="addItemToSchedule(${item.id}, '${activeTab}')" title="Add to Presentation Schedule">➔</button>
+                    <button class="btn-action" onclick="deleteResourceEntry(event, ${item.id})">✕</button>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        function filterActiveDatabase() {
+            const q = document.getElementById('searchBox').value.toLowerCase().trim();
+            const matched = appDatastore[activeTab].filter(i => {
+                const haystack = `${i.title} ${i.lines.join(' ')}`.toLowerCase();
+                return haystack.includes(q);
+            });
+            const list = document.getElementById('resourceList');
+            list.innerHTML = '';
+            matched.forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'list-item';
+                row.innerHTML = `
+                    <span style="flex:1;" onclick="loadItemToDesk(${item.id}, '${activeTab}')">${item.title}</span>
+                    <button class="btn-action btn-add-schedule" onclick="addItemToSchedule(${item.id}, '${activeTab}')">➔</button>
+                    <button class="btn-action" onclick="deleteResourceEntry(event, ${item.id})">✕</button>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        function addItemToSchedule(id, tabType) {
+            const asset = appDatastore[tabType].find(i => i.id === id);
+            if (!asset) return;
+            
+            const scheduleItem = {
+                scheduleId: Date.now() + Math.random().toString(36).substr(2, 5),
+                id: asset.id,
+                title: asset.title,
+                lines: [...asset.lines],
+                type: tabType
+            };
+
+serviceSchedule.push(scheduleItem);
+            saveState();
+            renderScheduleSidebar();
+            loadScheduledItemToDesk(scheduleItem.scheduleId);
+        }
+
+        function renderScheduleSidebar() {
+            const container = document.getElementById('scheduleList');
+            container.innerHTML = '';
+            
+            if(serviceSchedule.length === 0) {
+                container.innerHTML = `<div style="color:var(--text-muted); padding:10px; font-size:0.8rem; text-align:center;">Your service order is empty. Use the arrow button to add items to the queue.</div>`;
+                return;
+            }
+
+            serviceSchedule.forEach((item, index) => {
+                const row = document.createElement('div');
+                row.className = `list-item ${currentItem && currentItem.scheduleId === item.scheduleId ? 'selected' : ''}`;
+                row.style.marginBottom = '4px';
+                row.innerHTML = `
+                    <small style="color:var(--accent); font-weight:bold; margin-right:6px;">${index + 1}</small>
+                    <span style="flex:1; font-size:0.85rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" onclick="loadScheduledItemToDesk('${item.scheduleId}')">${item.title} (${item.type})</span>
+                    <button class="btn-action" onclick="removeScheduledItem(event, '${item.scheduleId}')">✕</button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function loadScheduledItemToDesk(schId) {
+            currentItem = serviceSchedule.find(i => i.scheduleId === schId);
+            if (!currentItem) return;
+
+            document.getElementById('activeDeckTitle').innerText = `[Schedule Room] ${currentItem.title}`;
+            selectedSlideIdx = 0;
+            openDeckEditorUI();
+            renderSlideMatrixGrid();
+            updateDeckModeBadge();
+            updatePreviewMonitor();
+            renderScheduleSidebar();
+            
+            if (isLiveActive) triggerLiveAction();
+        }
+
+        function removeScheduledItem(event, schId) {
+            event.stopPropagation();
+            serviceSchedule = serviceSchedule.filter(i => i.scheduleId !== schId);
+            if (currentItem && currentItem.scheduleId === schId) {
+                currentItem = null;
+                closeDeckEditorUI();
+                document.getElementById('slideMatrix').innerHTML = '';
+                document.getElementById('activeDeckTitle').innerText = 'No Deck Active';
+                clearPreviewsAndLiveElements();
+            }
+updateDeckModeBadge();
+            saveState();
+            renderScheduleSidebar();
+        }
+
+        function clearWholeSchedule() {
+            serviceSchedule = [];
+            currentItem = null;
+            closeDeckEditorUI();
+            document.getElementById('slideMatrix').innerHTML = '';
+            document.getElementById('activeDeckTitle').innerText = 'No Deck Active';
+clearPreviewsAndLiveElements();
+            updateDeckModeBadge();
+            saveState();
+            renderScheduleSidebar();
+        }
+
+        function clearPreviewsAndLiveElements() {
+            document.getElementById('previewText').innerText = '';
+            document.getElementById('previewSlideRender').innerHTML = '';
+            document.getElementById('liveText').innerText = '';
+            document.getElementById('liveSlideRender').innerHTML = '';
+        }
+
+        function loadItemToDesk(id, tabType) {
+            const asset = appDatastore[tabType].find(i => i.id === id);
+            if (!asset) return;
+
+            currentItem = appDatastore[tabType].find(i => i.id === id);
+            document.getElementById('activeDeckTitle').innerText = currentItem.title;
+            selectedSlideIdx = 0;
+            openDeckEditorUI();
+            renderSlideMatrixGrid();
+            updateDeckModeBadge();
+            updatePreviewMonitor();
+            
+            if (isLiveActive) triggerLiveAction();
+        }
+
+        function openDeckEditorUI() {
+            document.getElementById('deckEditorDrawer').style.display = 'flex';
+            updateDeckEditorTextDisplay();
+        }
+
+        function closeDeckEditorUI() {
+            document.getElementById('deckEditorDrawer').style.display = 'none';
+        }
+
+        function updateDeckEditorTextDisplay() {
+            const txtArea = document.getElementById('deckEditorTextArea');
+            const counter = document.getElementById('editorSlideCounter');
+            
+            if (!currentItem || currentItem.lines.length === 0) {
+                txtArea.value = '';
+                counter.innerText = 'Slide 0 of 0';
+                return;
+            }
+            txtArea.value = currentItem.lines[selectedSlideIdx] || '';
+            counter.innerText = `Slide ${selectedSlideIdx + 1} of ${currentItem.lines.length}`;
+        }
+
+        function updateActiveSlideTextLive() {
+            if (!currentItem) return;
+            const textVal = document.getElementById('deckEditorTextArea').value;
+            
+            currentItem.lines[selectedSlideIdx] = textVal;
+            syncDeskChangesToDatabase();
+
+            const activeThumbText = document.querySelectorAll('.slide-thumb .slide-content-text')[selectedSlideIdx];
+            if (activeThumbText) {
+                activeThumbText.innerHTML = textVal.replace(/\n/g, '<br>');
+            }
+            updatePreviewMonitor();
+
+            if (isLiveActive && liveDeck.length > 0) {
+                liveDeck[selectedSlideIdx] = textVal;
+                syncLiveOutputChannel();
+            }
+        }
+
+        function addNewSlideToDeck() {
+            if (!currentItem) return;
+            
+            currentItem.lines.push("New slide content placeholder");
+            selectedSlideIdx = currentItem.lines.length - 1;
+
+            syncDeskChangesToDatabase();
+            renderSlideMatrixGrid();
+            updatePreviewMonitor();
+
+            if (isLiveActive) triggerLiveAction();
+            document.getElementById('slideMatrix').scrollTop = document.getElementById('slideMatrix').scrollHeight;
+        }
+
+        function deleteCurrentSlideFromDeck() {
+            if (!currentItem || currentItem.lines.length <= 1) {
+                alert("A deck must retain at least one slide.");
+                return;
+            }
+
+            currentItem.lines.splice(selectedSlideIdx, 1);
+            if (selectedSlideIdx >= currentItem.lines.length) {
+                selectedSlideIdx = currentItem.lines.length - 1;
+            }
+
+            syncDeskChangesToDatabase();
+            renderSlideMatrixGrid();
+            updatePreviewMonitor();
+
+            if (isLiveActive) triggerLiveAction();
+        }
+
+        function syncDeskChangesToDatabase() {
+            if (!currentItem) return;
+
+            if (currentItem.scheduleId) {
+                let schTarget = serviceSchedule.find(i => i.scheduleId === currentItem.scheduleId);
+                if (schTarget) {
+                    schTarget.lines = [...currentItem.lines];
+                }
+            } 
+            
+let libTarget = appDatastore[currentItem.type].find(i => i.id === currentItem.id);
+            if (libTarget) {
+                libTarget.lines = [...currentItem.lines];
+            }
+            saveState();
+        }
+
+        function openEditorModal() {
+            document.getElementById('entryTitle').value = '';
+            document.getElementById('entryContent').value = '';
+            document.getElementById('editorModal').classList.add('open');
+        }
+        function closeEditorModal() { document.getElementById('editorModal').classList.remove('open'); }
+
+function openBibleSearchModal() {
+            document.getElementById('bibleBookInput').value = '';
+            document.getElementById('bibleChapterInput').value = '';
+            document.getElementById('bibleVerseInput').value = '';
+            document.getElementById('bibleEndVerseInput').value = '';
+            document.getElementById('bibleModal').classList.add('open');
+            setTimeout(() => document.getElementById('bibleBookInput').focus(), 50);
+        }
+        function closeBibleSearchModal() { document.getElementById('bibleModal').classList.remove('open'); }
+
+        function filterBibleBooks() {
+            const input = document.getElementById('bibleBookInput');
+            const q = input.value.toLowerCase().trim();
+            const box = document.getElementById('bibleBookSuggestions');
+            box.innerHTML = '';
+            if (!q) return showBibleSuggestions();
+
+            const matches = kjvBooks.filter(b => b.toLowerCase().includes(q));
+            matches.forEach(book => {
+                const div = document.createElement('div');
+                div.className = 'bible-book-suggestion';
+                div.textContent = book;
+                div.onmousedown = (e) => { e.preventDefault(); selectBibleBook(book); };
+                box.appendChild(div);
+            });
+            box.classList.add('show');
+        }
+
+        function showBibleSuggestions() {
+            const input = document.getElementById('bibleBookInput');
+            const q = input.value.toLowerCase().trim();
+            const box = document.getElementById('bibleBookSuggestions');
+            box.innerHTML = '';
+            const matches = q ? kjvBooks.filter(b => b.toLowerCase().includes(q)) : kjvBooks;
+            matches.slice(0, 30).forEach(book => {
+                const div = document.createElement('div');
+                div.className = 'bible-book-suggestion';
+                div.textContent = book;
+                div.onmousedown = (e) => { e.preventDefault(); selectBibleBook(book); };
+                box.appendChild(div);
+            });
+            box.classList.add('show');
+        }
+
+        function hideBibleSuggestionsDelayed() {
+            setTimeout(() => {
+                document.getElementById('bibleBookSuggestions').classList.remove('show');
+            }, 150);
+        }
+
+        function selectBibleBook(book) {
+            document.getElementById('bibleBookInput').value = book;
+            document.getElementById('bibleBookSuggestions').classList.remove('show');
+            document.getElementById('bibleChapterInput').focus();
+        }
+
+        function handleBibleModalKeydown(e) {
+            if (e.key === 'Tab') {
+                const bookInput = document.getElementById('bibleBookInput');
+                if (document.activeElement === bookInput) {
+                    e.preventDefault();
+                    if (bookInput.value.trim()) {
+                        // Autocomplete to first matching book if possible
+                        const q = bookInput.value.toLowerCase().trim();
+                        const match = kjvBooks.find(b => b.toLowerCase().includes(q));
+                        if (match) bookInput.value = match;
+                    }
+                    document.getElementById('bibleChapterInput').focus();
+                }
+            }
+            if (e.key === 'Enter') {
+                const active = document.getElementById('bibleBookSuggestions').querySelector('.bible-book-suggestion');
+                if (active && document.activeElement === document.getElementById('bibleBookInput')) {
+                    e.preventDefault();
+                    selectBibleBook(active.textContent);
+                    return;
+                }
+                // Enter to search if chapter filled
+                if (document.getElementById('bibleChapterInput').value.trim()) {
+                    e.preventDefault();
+                    searchBiblePassage();
+                }
+            }
+        }
+
+        async function searchBiblePassage() {
+            const book = document.getElementById('bibleBookInput').value.trim();
+            const chapter = document.getElementById('bibleChapterInput').value.trim();
+            const startVerse = document.getElementById('bibleVerseInput').value.trim();
+            const endVerse = document.getElementById('bibleEndVerseInput').value.trim();
+
+            if (!book || !chapter) {
+                return alert('Please type a book name and enter a chapter for your KJV search.');
+            }
+
+            let reference = `${book} ${chapter}`;
+            if (startVerse) {
+                reference += `:${startVerse}${endVerse ? `-${endVerse}` : ''}`;
+            }
+
+            try {
+                const response = await fetch(`https://bible-api.com/${encodeURIComponent(reference)}?translation=kjv`);
+                const data = await response.json();
+                const verseText = data.text || data.error || '';
+                if (!verseText) throw new Error('No KJV results found for that reference.');
+
+                const verseTitle = data.reference || reference;
+                const lines = verseText
+                    .split(/\n+/)
+                    .map(line => line.trim())
+                    .filter(Boolean);
+
+                const newAsset = {
+                    id: Date.now(),
+                    type: 'scripture',
+                    title: `${verseTitle} (KJV)`,
+lines: [verseText.trim()]
+                };
+
+appDatastore.scripture.push(newAsset);
+                saveState();
+                closeBibleSearchModal();
+                renderResourceSidebar();
+                loadItemToDesk(newAsset.id, 'scripture');
+            } catch (error) {
+                console.error(error);
+                alert('Unable to load the KJV passage right now. Please check the book, chapter, and verse fields and try again.');
+            }
+        }
+
+        function saveResourceEntry() {
+            const title = document.getElementById('entryTitle').value.trim();
+            const rawContent = document.getElementById('entryContent').value.trim();
+            if (!title || !rawContent) return alert('Please complete both title and content fields.');
+
+            const splitLines = rawContent.split(/\n\s*\n/).map(l => l.trim());
+// Display the entire content on a single slide by default (no auto-splitting).
+            const newAsset = { id: Date.now(), type: activeTab, title: title, lines: [rawContent] };
+
+appDatastore[activeTab].push(newAsset);
+            saveState();
+            closeEditorModal();
+            renderResourceSidebar();
+            loadItemToDesk(newAsset.id, activeTab);
+        }
+
+        /* 
+         * Robust pure JSZip PPTX text extractor.
+         * Extracts actual structured presentation content directly without rendering onto a canvas.
+         */
+        async function handlePptxUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const zip = await JSZip.loadAsync(arrayBuffer);
+                
+                // Track presentation metadata
+                let slideFiles = Object.keys(zip.files).filter(path => 
+                    path.startsWith("ppt/slides/slide") && path.endsWith(".xml")
+                );
+
+                if (slideFiles.length === 0) {
+                    throw new Error("No slide files found in PPTX. Ensure this is a standard open PowerPoint format.");
+                }
+
+                // Sort files numerically: slide1.xml, slide2.xml...
+                slideFiles.sort((a, b) => {
+                    const numA = parseInt(a.replace(/[^0-9]/g, ''));
+                    const numB = parseInt(b.replace(/[^0-9]/g, ''));
+                    return numA - numB;
+                });
+
+                const parser = new DOMParser();
+                const extractedSlides = [];
+
+                for (let fileRoute of slideFiles) {
+                    const content = await zip.files[fileRoute].async("text");
+                    const xmlDoc = parser.parseFromString(content, "application/xml");
+                    
+                    // Parse out text runs (<a:t> XML nodes represent text fields inside PowerPoint shapes)
+                    const textNodes = xmlDoc.getElementsByTagName("a:t");
+                    let slideText = [];
+                    
+                    for (let node of textNodes) {
+                        if (node.textContent.trim()) {
+                            slideText.push(node.textContent.trim());
+                        }
+                    }
+
+                    // Fallback if slide is completely empty/image-only
+                    if (slideText.length === 0) {
+                        slideText.push(`[Slide ${extractedSlides.length + 1}]`);
+                    }
+
+                    // Format structured text blocks cleanly
+                    extractedSlides.push(slideText.join("\n"));
+                }
+
+                const newPresentationAsset = {
+                    id: Date.now(),
+                    type: 'presentation',
+                    title: file.name.replace(/\.[^/.]+$/, ""),
+                    lines: extractedSlides
+                };
+
+appDatastore.presentation.push(newPresentationAsset);
+                saveState();
+                renderResourceSidebar();
+                loadItemToDesk(newPresentationAsset.id, 'presentation');
+                alert(`Import complete — ${extractedSlides.length} slides added from the presentation.`);
+
+            } catch (err) {
+                console.error("PPTX Parsing failed:", err);
+                alert("Unable to read the presentation file. Please try again with an unprotected PPTX file.");
+            } finally {
+                event.target.value = ""; // Reset input element
+            }
+        }
+
+        function deleteResourceEntry(event, id) {
+            event.stopPropagation();
+            appDatastore[activeTab] = appDatastore[activeTab].filter(item => item.id !== id);
+            if (currentItem && currentItem.id === id && !currentItem.scheduleId) {
+                currentItem = null;
+                closeDeckEditorUI();
+                document.getElementById('slideMatrix').innerHTML = '';
+                document.getElementById('activeDeckTitle').innerText = 'No Deck Active';
+clearPreviewsAndLiveElements();
+            }
+            saveState();
+            renderResourceSidebar();
+        }
+
+        function openThemeManagerModal() {
+            renderThemeManagerList();
+            document.getElementById('themeModal').classList.add('open');
+        }
+        function closeThemeManagerModal() { document.getElementById('themeModal').classList.remove('open'); }
+
+        function handleThemeUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const fileURL = URL.createObjectURL(file);
+            const type = file.type.startsWith('video') ? 'video' : 'image';
+            const themeKey = `custom-${Date.now()}`;
+
+customThemes[themeKey] = { name: file.name, type: type, value: fileURL };
+            saveState();
+            
+            updateThemeDropdownOptions();
+            renderThemeManagerList();
+            
+            document.getElementById('themeDropdown').value = themeKey;
+            applyGlobalTheme();
+        }
+
+        function updateThemeDropdownOptions() {
+            const dropdown = document.getElementById('themeDropdown');
+            dropdown.innerHTML = `
+                <option value="solid-black">Theme: Pitch Black</option>
+                <option value="gradient-blue">Theme: Ocean Gradient</option>
+            `;
+            Object.keys(customThemes).forEach(key => {
+                const option = document.createElement('option');
+                option.value = key;
+                option.text = `Uploaded: ${customThemes[key].name.substring(0, 18)}`;
+                dropdown.appendChild(option);
+            });
+        }
+
+        function renderThemeManagerList() {
+            const container = document.getElementById('customThemeList');
+            container.innerHTML = '';
+            const keys = Object.keys(customThemes);
+
+            if(keys.length === 0) {
+                container.innerHTML = `<div style="text-align:center; padding:10px; color:var(--text-muted); font-size:0.8rem;">No custom local file media layers uploaded yet.</div>`;
+                return;
+            }
+
+            keys.forEach(key => {
+                const row = document.createElement('div');
+                row.className = 'theme-manager-row';
+                row.innerHTML = `
+                    <span style="font-size:0.8rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:280px;">${customThemes[key].name} (${customThemes[key].type})</span>
+                    <button style="background:#552222; border:none; color:#ff8888; padding:2px 6px; font-size:0.75rem;" onclick="deleteCustomTheme('${key}')">Remove</button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function deleteCustomTheme(key) {
+            if(customThemes[key]) {
+                URL.revokeObjectURL(customThemes[key].value);
+                delete customThemes[key];
+            }
+
+            const dropdown = document.getElementById('themeDropdown');
+if (dropdown.value === key) {
+                dropdown.value = 'solid-black';
+                applyGlobalTheme();
+            }
+
+            saveState();
+            updateThemeDropdownOptions();
+            renderThemeManagerList();
+        }
+
+        function applyGlobalTheme() {
+            const val = document.getElementById('themeDropdown').value;
+            if (val === 'solid-black') activeThemeConfig = { type: 'color', value: '#000000' };
+            else if (val === 'gradient-blue') activeThemeConfig = { type: 'gradient', value: 'linear-gradient(135deg, #0f2027, #203a43, #2c5364)' };
+            else if (customThemes[val]) activeThemeConfig = customThemes[val];
+
+            injectThemeBackground(document.getElementById('previewWindow'), activeThemeConfig);
+            injectThemeBackground(document.getElementById('liveWindow'), activeThemeConfig);
+            
+            if (currentItem) renderSlideMatrixGrid();
+            if (isLiveActive) syncLiveOutputChannel();
+        }
+
+        function injectThemeBackground(targetElement, config) {
+            const oldMedia = targetElement.querySelectorAll('.theme-media');
+            oldMedia.forEach(m => m.remove());
+            targetElement.style.background = '';
+
+            if (config.type === 'color') {
+                targetElement.style.backgroundColor = config.value;
+            } else if (config.type === 'gradient') {
+                targetElement.style.background = config.value;
+            } else if (config.type === 'image') {
+                const img = document.createElement('img');
+                img.className = 'theme-media';
+                img.src = config.value;
+                targetElement.prepend(img);
+            } else if (config.type === 'video') {
+                const vid = document.createElement('video');
+                vid.className = 'theme-media';
+                vid.src = config.value;
+                vid.autoplay = true; vid.loop = true; vid.muted = true; vid.playsInline = true;
+                targetElement.prepend(vid);
+            }
+        }
+
+        function renderSlideMatrixGrid() {
+            const matrix = document.getElementById('slideMatrix');
+            matrix.innerHTML = '';
+            if (!currentItem) return;
+
+currentItem.lines.forEach((text, idx) => {
+                const thumb = document.createElement('div');
+                thumb.className = `slide-thumb ${idx === selectedSlideIdx ? 'active' : ''}`;
+                thumb.dataset.index = idx + 1;
+                
+                injectThemeBackground(thumb, activeThemeConfig);
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'slide-content-text';
+                wrapper.innerHTML = text.replace(/\n/g, '<br>');
+                
+                thumb.appendChild(wrapper);
+
+                thumb.onclick = () => {
+                    selectedSlideIdx = idx;
+                    updatePreviewMonitor();
+                    if (isLiveActive) triggerLiveAction();
+                };
+                matrix.appendChild(thumb);
+            });
+        }
+
+        function applyFontSettings() {
+            currentFontSize = document.getElementById('fontSizeSelect').value;
+            currentFontType = document.getElementById('fontTypeSelect').value;
+
+            updatePreviewMonitor();
+            if (isLiveActive) syncLiveOutputChannel();
+        }
+
+        function fitTextElement(element, text) {
+            const safeText = text || '';
+            const lines = safeText.split(/\n/).length;
+            const characterCount = safeText.length;
+
+            element.style.textAlign = textAlignment;
+            element.style.overflow = 'auto';
+            element.style.padding = '18px';
+            element.style.maxWidth = '90%';
+            element.style.width = '90%';
+            element.style.alignItems = 'center';
+            element.style.justifyContent = 'center';
+            element.style.fontFamily = currentFontType;
+
+let fontSize = 1.9;
+            if (currentFontSize === 'tiny') fontSize = 1.0;
+            if (currentFontSize === 'small') fontSize = 1.4;
+            if (currentFontSize === 'medium') fontSize = 1.9;
+            if (currentFontSize === 'large') fontSize = 2.4;
+            if (currentFontSize === 'xlarge') fontSize = 2.9;
+            if (currentFontSize === 'huge') fontSize = 3.4;
+
+            if (!autoFitEnabled) {
+                element.style.fontSize = `${fontSize}rem`;
+                element.style.lineHeight = '1.18';
+                return;
+            }
+
+            // Light auto-fit adjustments so the selected size stays dominant
+            if (lines > 10) fontSize -= 0.25;
+            if (characterCount > 200) fontSize -= 0.2;
+            if (characterCount > 400) fontSize -= 0.25;
+
+            fontSize = Math.max(0.8, fontSize);
+            element.style.fontSize = `${fontSize}rem`;
+            element.style.lineHeight = lines > 8 ? '1.12' : '1.22';
+        }
+
+        function toggleFitMode() {
+            autoFitEnabled = !autoFitEnabled;
+            const btn = document.getElementById('btnFitScreen');
+            btn.innerText = `Smart Fit: ${autoFitEnabled ? 'On' : 'Off'}`;
+            btn.style.backgroundColor = autoFitEnabled ? 'var(--accent)' : '#555';
+
+            updatePreviewMonitor();
+            if (isLiveActive) syncLiveOutputChannel();
+        }
+
+        function updatePreviewMonitor() {
+            const thumbs = document.querySelectorAll('.slide-thumb');
+            thumbs.forEach((t, idx) => t.classList.toggle('active', idx === selectedSlideIdx));
+            
+            const previewText = document.getElementById('previewText');
+            const previewWindow = document.getElementById('previewWindow');
+            const previewRender = document.getElementById('previewSlideRender');
+            previewRender.innerHTML = '';
+
+            previewWindow.classList.add('is-transitioning');
+            clearTimeout(window.previewTransitionTimer);
+            window.previewTransitionTimer = setTimeout(() => previewWindow.classList.remove('is-transitioning'), 450);
+
+            if (currentItem) {
+                const targetText = currentItem.lines[selectedSlideIdx] || '';
+                previewText.innerText = targetText;
+                fitTextElement(previewText, targetText);
+            } else {
+                previewText.innerText = '';
+                previewText.style.fontSize = '1.2rem';
+                previewText.style.textAlign = textAlignment;
+            }
+
+            updateDeckEditorTextDisplay();
+        }
+
+        function toggleLiveState() {
+            if (isLiveActive) {
+                killLiveScreen();
+            } else {
+                if (!currentItem) return alert("Select an asset or deck first before going live.");
+                isLiveActive = true;
+                triggerLiveAction();
+            }
+            updateLiveUIElements();
+        }
+
+        function updateLiveUIElements() {
+            const toggleBtn = document.getElementById('btnToggleLive');
+            const liveBox = document.getElementById('liveBoxContainer');
+            const liveHeader = document.getElementById('livePanelHeader');
+            const headerLiveBadge = document.getElementById('headerLiveBadge');
+
+            if (isLiveActive) {
+                toggleBtn.innerText = "Cut Live Stream (F5)";
+                toggleBtn.style.backgroundColor = "var(--accent-live-active)";
+                liveBox.classList.add('active-air');
+                liveHeader.innerText = "Live Channel Output (ON AIR)";
+                liveHeader.style.color = "var(--accent-live-active)";
+                headerLiveBadge.innerText = 'LIVE';
+                headerLiveBadge.style.background = 'rgba(255, 90, 95, 0.18)';
+                headerLiveBadge.style.color = '#ffd6d9';
+                document.querySelector('.screen-container#liveWindow').style.animation = 'screenPulse 1.4s infinite';
+            } else {
+                toggleBtn.innerText = "Go Live (F5)";
+                toggleBtn.style.backgroundColor = "var(--accent)";
+                liveBox.classList.remove('active-air');
+                liveHeader.innerText = "Live Channel Output (OFF AIR)";
+                liveHeader.style.color = "var(--text-muted)";
+                headerLiveBadge.innerText = 'Offline';
+                headerLiveBadge.style.background = 'rgba(91, 140, 255, 0.18)';
+                headerLiveBadge.style.color = 'var(--text-main)';
+                document.querySelector('.screen-container#liveWindow').style.animation = 'none';
+            }
+        }
+
+        function triggerLiveAction() {
+            if (!currentItem) return;
+            liveDeck = [...currentItem.lines];
+            liveSlideIdx = selectedSlideIdx;
+            syncLiveOutputChannel();
+        }
+
+        function syncLiveOutputChannel() {
+            const text = (isLiveActive && liveDeck[liveSlideIdx]) ? liveDeck[liveSlideIdx] : '';
+            const liveText = document.getElementById('liveText');
+            const liveWindow = document.getElementById('liveWindow');
+            liveText.innerText = text;
+            fitTextElement(liveText, text);
+            
+            liveWindow.classList.add('is-transitioning');
+            clearTimeout(window.liveTransitionTimer);
+            window.liveTransitionTimer = setTimeout(() => liveWindow.classList.remove('is-transitioning'), 450);
+
+            const liveRender = document.getElementById('liveSlideRender');
+            liveRender.innerHTML = '';
+
+            if (projectorWindow && !projectorWindow.closed) {
+                const winDoc = projectorWindow.document;
+                const display = winDoc.getElementById('display');
+                const container = winDoc.getElementById('stageContainer');
+                const projRender = winDoc.getElementById('projSlideRender');
+                
+                if (display && container && projRender) {
+                    display.innerText = text;
+                    fitTextElement(display, text);
+                    projRender.innerHTML = '';
+
+                    if (isLiveActive) {
+                        injectThemeBackground(container, activeThemeConfig);
+                    } else {
+                        injectThemeBackground(container, { type: 'color', value: '#000000' });
+                    }
+                }
+            }
+        }
+
+        function killLiveScreen() {
+            isLiveActive = false;
+            liveDeck = [];
+            syncLiveOutputChannel();
+            updateLiveUIElements();
+        }
+
+        // True EasyWorship-style automatic screen placement
+        function closeProjectorWindow() {
+            if (projectorWindow && !projectorWindow.closed) {
+                projectorWindow.close();
+            }
+            projectorWindow = null;
+        }
+
+        function toggleExtendedScreenTwice() {
+            if (projectorWindow && !projectorWindow.closed) {
+                closeProjectorWindow();
+                return;
+            }
+            launchProjector();
+        }
+
+        async function launchProjector() {
+            let left = window.screen.availLeft || 0;
+            let top = window.screen.availTop || 0;
+            let width = window.screen.availWidth || window.screen.width || 1280;
+            let height = window.screen.availHeight || window.screen.height || 720;
+
+            if ('getScreenDetails' in window) {
+                try {
+                    const screenDetails = await window.getScreenDetails();
+                    const screens = screenDetails.screens || [];
+                    const projectorScreen = screens.find(s => s !== screenDetails.currentScreen) || screens[1] || screens[0];
+
+                    if (projectorScreen) {
+                        left = projectorScreen.availLeft ?? projectorScreen.left ?? left;
+                        top = projectorScreen.availTop ?? projectorScreen.top ?? top;
+                        width = projectorScreen.availWidth ?? projectorScreen.width ?? width;
+                        height = projectorScreen.availHeight ?? projectorScreen.height ?? height;
+                    }
+                } catch (err) {
+                    console.warn("Multi-screen permission denied. Defaulting to available screen area.", err);
+                }
+            }
+
+            projectorWindow = window.open("", "SAMDEV_Broadcast",
+                `left=${left},top=${top},width=${width},height=${height},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=no`
+            );
+
+            if (projectorWindow) {
+                try {
+                    projectorWindow.moveTo(left, top);
+                    projectorWindow.resizeTo(width, height);
+                } catch (err) {
+                    console.warn('Could not move or resize projector window automatically.', err);
+                }
+            }
+
+            projectorWindow.document.write(`
+                <html>
+                <head>
+                    <title>SAMDEV Broadcast Window</title>
+                    <style>
+                        body, html { margin:0; padding:0; height:100vh; background:#000; overflow:hidden; font-family:sans-serif; }
+                        #stageContainer { width:100%; height:100%; position:relative; display:flex; justify-content:center; align-items:center; background:#000; }
+                        #display { font-size:4.8vw; font-weight:800; color:#fff; text-align:center; position:relative; z-index:10; text-shadow:3px 3px 8px #000; width:min(85%, 1100px); max-height:100%; overflow:auto; padding:24px; white-space:pre-wrap; word-break:break-word; }
+                        .theme-media { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:1; }
+                        #projSlideRender { position:absolute; top:0; left:0; width:100%; height:100%; z-index:3; pointer-events:none; display:flex; justify-content:center; align-items:center; }
+                    </style>
+                </head>
+                <body>
+                    <div id="stageContainer">
+                        <div id="projSlideRender"></div>
+                        <div id="display"></div>
+                    </div>
+                </body>
+                </html>
+            `);
+            projectorWindow.document.close();
+
+            setTimeout(() => {
+                syncLiveOutputChannel();
+                try {
+                    projectorWindow.document.documentElement.requestFullscreen();
+                } catch(e) {}
+            }, 400);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'F5') { e.preventDefault(); toggleLiveState(); }
+            if (e.key === 'F8') { e.preventDefault(); toggleExtendedScreenTwice(); }
+            
+            if (isLiveActive) {
+                if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+                    if (liveSlideIdx < liveDeck.length - 1) { liveSlideIdx++; syncLiveOutputChannel(); }
+                }
+                if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+                    if (liveSlideIdx > 0) { liveSlideIdx--; syncLiveOutputChannel(); }
+                }
+            }
+        });
+
+        window.onload = init;
+    </script>
+</body>
+</html>
