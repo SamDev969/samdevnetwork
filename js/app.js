@@ -71,46 +71,46 @@ new Typed("#typing", {
 ANIMATED COUNTER
 ==============================*/
 
+// ================= COUNTER ANIMATION =================
 const counters = document.querySelectorAll(".counter");
 
-counters.forEach(counter => {
+const animateCounter = (counter) => {
+    const target = +counter.getAttribute("data-target");
+    const speed = 200; // lower = faster
+    const increment = target / speed;
 
-    counter.innerText = "0";
+    let current = 0;
 
-    const updateCounter = () => {
+    const update = () => {
+        current += increment;
 
-        const target = Number(counter.getAttribute("data-target")) || Number(counter.innerText);
-
-        const finalValue = target === 0
-            ? Number(counter.textContent)
-            : target;
-
-        const current = Number(counter.innerText);
-
-        const increment = Math.ceil(finalValue / 100);
-
-        if(current < finalValue){
-
-            counter.innerText = current + increment;
-
-            setTimeout(updateCounter,20);
-
-        }else{
-
-            counter.innerText = finalValue;
-
+        if (current < target) {
+            counter.innerText = Math.ceil(current);
+            requestAnimationFrame(update);
+        } else {
+            counter.innerText = target;
         }
+    };
 
-    }
+    update();
+};
 
-    if(counter.dataset.target){
-
-        updateCounter();
-
-    }
-
+// Run counters only when they appear on screen
+const observer = new IntersectionObserver((entries, observer) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            const counter = entry.target;
+            animateCounter(counter);
+            observer.unobserve(counter); // run only once
+        }
+    });
+}, {
+    threshold: 0.5
 });
 
+counters.forEach(counter => {
+    observer.observe(counter);
+});
 
 /*==============================
 STICKY NAVIGATION
