@@ -112,6 +112,7 @@ counters.forEach(counter => {
     observer.observe(counter);
 });
 
+
 /*==============================
 STICKY NAVIGATION
 ==============================*/
@@ -143,32 +144,42 @@ window.addEventListener("scroll",()=>{
 MOBILE MENU
 ==============================*/
 
-const menuBtn = document.querySelector(".menu-btn");
+// Wait for DOM to be ready
+if (document.readyState !== 'loading') {
+    initMobileMenu();
+} else {
+    document.addEventListener('DOMContentLoaded', initMobileMenu);
+}
 
-const navLinks = document.querySelector(".nav-links");
+function initMobileMenu() {
+    const menuBtn = document.querySelector(".menu-btn");
+    const navLinks = document.querySelector(".nav-links");
+    const body = document.body;
 
-const body = document.body;
-
-if(menuBtn && navLinks){
-
-    menuBtn.addEventListener("click",()=>{
-
-        navLinks.classList.toggle("show");
-        body.classList.toggle("menu-open");
-
-    });
-
-    document.querySelectorAll(".nav-links a").forEach(link=>{
-
-        link.addEventListener("click",()=>{
-
-            navLinks.classList.remove("show");
-            body.classList.remove("menu-open");
-
+    if(menuBtn && navLinks){
+        // Toggle menu on hamburger click
+        menuBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            navLinks.classList.toggle("show");
+            body.classList.toggle("menu-open");
         });
 
-    });
+        // Close menu when clicking a link
+        document.querySelectorAll(".nav-links a").forEach(link=>{
+            link.addEventListener("click",()=>{
+                navLinks.classList.remove("show");
+                body.classList.remove("menu-open");
+            });
+        });
 
+        // Close menu when clicking overlay
+        document.addEventListener("click", (e) => {
+            if (body.classList.contains("menu-open") && !e.target.closest(".nav-links") && !e.target.closest(".menu-btn")) {
+                navLinks.classList.remove("show");
+                body.classList.remove("menu-open");
+            }
+        });
+    }
 }
 
 
