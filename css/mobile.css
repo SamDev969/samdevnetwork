@@ -37,7 +37,9 @@ textarea {
         top: 0;
         left: 0;
         width: 100%;
-        z-index: 998;
+        z-index: 1003;
+        background: rgba(10, 25, 47, 0.95);
+        backdrop-filter: blur(20px);
     }
 
     nav {
@@ -65,8 +67,14 @@ textarea {
 
     .menu-btn {
         flex: 0 0 auto;
-        display: block;
+        display: block !important;
         font-size: 24px;
+        color: white;
+        cursor: pointer;
+        z-index: 1002;
+        background: none;
+        border: none;
+        padding: 0;
     }
 
     /* Mobile slide-in menu */
@@ -78,6 +86,7 @@ textarea {
         height: 100vh;
         max-height: 100vh;
         padding: 80px 26px 40px;
+        display: flex;
         flex-direction: column;
         justify-content: flex-start;
         align-items: flex-start;
@@ -85,14 +94,17 @@ textarea {
         background: linear-gradient(180deg, rgba(5, 9, 20, 0.99), rgba(15, 23, 42, 0.99));
         border-right: 1px solid rgba(255, 255, 255, 0.12);
         transform: translateX(-100%);
-        transition: transform 0.35s ease;
+        transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
         z-index: 1001;
+        visibility: visible;
         box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
         overflow-y: auto;
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: thin;
         scrollbar-color: var(--accent) transparent;
+        pointer-events: auto;
+        list-style: none;
     }
 
     .nav-links::-webkit-scrollbar {
@@ -118,27 +130,50 @@ textarea {
     .nav-links li a {
         display: block;
         width: 100%;
-        font-size: 17px;
-        padding: 11px 0;
-        opacity: 0.9;
+        font-size: 18px;
+        font-weight: 500;
+        padding: 15px 15px;
+        opacity: 1;
+        color: #f8fbff;
         white-space: nowrap;
+        transition: color 0.3s ease;
+        cursor: pointer;
+        z-index: 1002;
+        text-decoration: none;
+        letter-spacing: 0.5px;
     }
 
     .nav-links li a.active {
         opacity: 1;
-        color: var(--accent) !important;
+        color: #1F7CFF !important;
+        font-weight: 600;
     }
 
     .nav-links li .btn-portal {
         display: inline-block;
         width: auto;
-        margin-top: 8px;
-        padding: 8px 22px;
+        margin-top: 12px;
+        padding: 10px 24px;
+        background: #1F7CFF;
+        color: #f8fbff;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 15px;
+        transition: background 0.3s ease;
+    }
+
+    .nav-links li .btn-portal:hover {
+        background: #1567e8;
     }
 
     /* Overlay behind menu */
     body.menu-open::before {
-        z-index: 999;
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: rgba(2, 6, 23, 0.8);
+        z-index: 1000;
+        pointer-events: none;
     }
 
     /* Push hero below fixed header */
