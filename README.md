@@ -38,10 +38,10 @@ This portfolio demonstrates technical proficiency across full-stack development,
 
 **Adebayo Samuel** is a passionate technology professional dedicated to:
 
-✅ **Bridging the gap** between complex engineering concepts and practical digital solutions  
-✅ **Empowering individuals and organizations** through technology training and support  
-✅ **Delivering innovative solutions** in software development and hardware engineering  
-✅ **Providing professional guidance** in ICT education and digital transformation  
+✅ **Bridging the gap** between complex engineering concepts and practical digital solutions
+✅ **Empowering individuals and organizations** through technology training and support
+✅ **Delivering innovative solutions** in software development and hardware engineering
+✅ **Providing professional guidance** in ICT education and digital transformation
 
 **Key Expertise:**
 - Software development with Python, JavaScript, and web frameworks
@@ -173,6 +173,9 @@ Interactive educational platform for ICT student training and coding fundamental
 ```
 Portfolio/
 ├── index.html                 # Main portfolio page
+├── sitemap.xml                # XML Sitemap for search engines
+├── sitemap.html               # Visual HTML Sitemap page
+├── robots.txt                 # Search engine crawler instructions
 ├── README.md                  # This file
 ├── googledd91bf59d1ec55a7.html # Google verification file
 │
@@ -321,7 +324,7 @@ Special thanks to:
 
 ---
 
-**Last Updated:** August 2026  
+**Last Updated:** August 2026
 **Portfolio Version:** 2.0
 
 ---
