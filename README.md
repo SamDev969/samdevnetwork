@@ -100,10 +100,12 @@ Multi-display projection application with live rendering support.
 - 🔗 [Launch Presentation App](https://samdev969.github.io/Presentation-App/)
 - 📝 Features: PowerPoint rendering, multi-screen support, real-time updates
 
-### 2. **Hardware Diagnostics Suite**
-Custom diagnostic logging tool for comprehensive motherboard component testing.
-- 🔧 Chip-level diagnostics and component validation
-- 📊 Detailed logging and report generation
+### 2. **SAMDEV LIVE STUDIO**
+Professional multi-source wireless live video broadcast & streaming studio engineered for dynamic video production, live camera pairing, and stream output.
+- 📱 Multi-source inputs: QR phone camera pairing, USB webcams, VDO.Ninja, & screen sharing
+- 📑 Multi-layer visual compositor with Picture-in-Picture (PIP), side-by-side layouts, & text overlays
+- 🎬 WebRTC live streaming program output, local session recording, & projector mode
+- 🔗 [Launch SAMDEV Live Studio](https://live-studio.onrender.com)
 
 ### 3. **E-Learning Portal**
 Interactive educational platform for ICT student training and coding fundamentals.
